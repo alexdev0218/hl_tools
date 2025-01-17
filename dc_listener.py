@@ -13,21 +13,20 @@ intents.guilds = True  # Permite obtener información de servidores
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree  # Usaremos app_commands para slash commands
 
-async def send_discord_message_to_channel(message: str):
+async def send_discord_message_to_channel(message: str, buttons: list = None):
     """
-    Envía un mensaje a un canal de Discord por su ID.
+    Envía un mensaje a un canal de Discord con botones interactivos.
     """
     channel_id = util.get_env_dc_channel_id()  # ID del canal desde tus utilidades
     channel = bot.get_channel(channel_id)  # Busca el canal por ID
     if channel is None:
         print(f"No se pudo encontrar el canal con ID: {channel_id}. Intentando obtener de nuevo...")
-        # Intento adicional usando fetch_channel
         try:
             channel = await bot.fetch_channel(channel_id)
         except Exception as e:
             print(f"Error al obtener el canal: {e}")
             return
-    
+
     if channel:
         try:
             # Buscar el rol en el servidor
@@ -41,7 +40,17 @@ async def send_discord_message_to_channel(message: str):
             role_mention = f"<@&{role.id}>"
             content = f"{role_mention} {message}"
 
-            await channel.send(content)
+            # Crear la vista con los botones si existen
+            view = None
+            if buttons:
+                view = discord.ui.View()
+                for button in buttons:
+                    # Crea un botón con el texto y el enlace
+                    discord_button = discord.ui.Button(label=button['texto'], url=button['enlace'])
+                    view.add_item(discord_button)
+
+            # Envía el mensaje con o sin botones
+            await channel.send(content, view=view)
             print(f"Mensaje enviado a {channel_id}: {content}")
         except Exception as e:
             print(f"Error al enviar mensaje: {e}")

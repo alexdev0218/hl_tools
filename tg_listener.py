@@ -23,7 +23,19 @@ async def stop_client():
 @client.on(events.NewMessage(chats=tg_source_channel))
 async def handler(event):
     mensaje_original = event.message.message
-    await dc_listener.send_discord_message_to_channel(message=mensaje_original)
+    botones = event.message.reply_markup
+
+    # Procesar los botones y extraer los enlaces
+    botones_info = []
+    if botones and hasattr(botones, 'rows'):
+        for fila in botones.rows:
+            for boton in fila.buttons:
+                texto = boton.text  # Texto del botón
+                enlace = boton.url  # Enlace asociado al botón
+                botones_info.append({'texto': texto, 'enlace': enlace})
+
+    # Enviar mensaje y botones a Discord
+    await dc_listener.send_discord_message_to_channel(message=mensaje_original, buttons=botones_info)
 
 # Función para iniciar el cliente y escuchar mensajes
 async def iniciar_tg_escucha():
