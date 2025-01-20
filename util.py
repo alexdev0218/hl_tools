@@ -85,22 +85,21 @@ def format_launch_response(mensaje_original):
     description_pattern = r"\)\s*(.*?)(?=\nCreator|$)"
     description_match = re.search(description_pattern, mensaje_original, re.DOTALL)
     description = description_match.group(1).strip() if description_match else "No disponible"
-    # Eliminar enlaces de la descripción
-    description = re.sub(r"http[s]?://\S+", "", description)
-    # Eliminar líneas que comiencen con "X:" o "TG:"
-    description = re.sub(r"^(X:.*|TG:.*|Website:.*)$", "", description, flags=re.MULTILINE).strip()
-    # Eliminar saltos de línea intermedios y dejar un solo salto al final
-    description = re.sub(r"\s*\n\s*", " ", description).strip()
+    # Eliminar enlaces de la descripción y saltos de línea
+    description = re.sub(r"http[s]?://\S+", "", description).replace("\n", " ").strip()
 
     # Patrón para el creador
-    creator_pattern = r"Creator\s*Creator username:\s*(@\S+)\s*Creator display name:\s*(.*?)\s*Rep:\s*(\d+)\s*❌\s*Dev Lock:\s*(\S+)"
+    creator_pattern = r"Creator\s*Creator username:\s*(@\S+)\s*Creator display name:\s*(.*?)\s*Rep:\s*(\d+)\s*[⚠️❌]*\s*Dev Lock:\s*(\S+)"
     creator_match = re.search(creator_pattern, mensaje_original)
     creator_info = {
-        "username": creator_match.group(1) if creator_match else "No disponible",
+        "username": creator_match.group(1) if creator_match else None,
         "display_name": creator_match.group(2).strip() if creator_match else "No disponible",
         "rep": creator_match.group(3) if creator_match else "No disponible",
         "dev_lock": creator_match.group(4) if creator_match else "No disponible",
     }
+
+    # Generar enlace de Telegram solo si el username existe
+    telegram_link = f"https://t.me/{creator_info['username'][1:]}" if creator_info["username"] else ""
 
     # Crear el mensaje formateado
     info_message = (
@@ -109,10 +108,11 @@ def format_launch_response(mensaje_original):
         f"===================================\n"
         f"**Nombre:** {name_info['full_name']} ({name_info['ticker']})\n"
         f"**Descripción:** {description}\n"
+        f"{f'**Telegram:** {telegram_link}' if telegram_link else ''}\n"
         f"**DEV_Nombre:** {creator_info['display_name']}\n"
         f"**DEV_Usuario:** {creator_info['username']}\n"
         f"**DEV_REP:** {creator_info['rep']}\n"
-        f"**DEV_LOCK:** {creator_info['dev_lock']}"
+        f"**DEV_LOCK:** {creator_info['dev_lock']}\n"
     )
 
     return info_message

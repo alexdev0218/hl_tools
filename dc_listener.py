@@ -4,7 +4,7 @@ import util
 
 # Configura el token del bot
 BOT_TOKEN = util.get_dc_bot_token()
-ROLE_NAME = "hyperdegen"
+ROLE_NAME = "Hyperdegen"
 
 # Configura el bot
 intents = discord.Intents.default()
