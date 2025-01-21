@@ -25,46 +25,38 @@ async def stop_client():
 async def handler(event):
     mensaje_original = event.message.message
     botones = event.message.reply_markup
-    x_account = util.find_x_account(mensaje_original)
 
-    # Procesar los botones y extraer los enlaces
+    # Procesar los botones del mensaje original
     botones_info = []
     if botones and hasattr(botones, 'rows'):
         for fila in botones.rows:
             for boton in fila.buttons:
-                texto = boton.text  # Texto del botón
-                enlace = boton.url  # Enlace asociado al botón
+                texto = boton.text
+                enlace = boton.url
                 botones_info.append({'texto': texto, 'enlace': enlace})
 
-    # Buscar enlaces en el mensaje original (usando expresiones regulares)
-    link_patterns = util.get_social_links_patterns()
+    # Extraer el enlace de Telegram del creador y añadir el botón correspondiente
+    dev_telegram = util.generate_telegram_link_from_creator(mensaje_original)
+    if dev_telegram != "No disponible":
+        botones_info.append({'texto': 'DEV-Telegram', 'enlace': dev_telegram})
 
-    # Extraer los enlaces según los patrones definidos
-    found_links = util.extract_social_links(mensaje_original)
-
-    # Crear botones a partir de los enlaces encontrados
-    for label, url in found_links.items():
-        if(url != "No disponible"):
-            botones_info.append({'texto': label, 'enlace': url})
-
-    botones_info.append({'texto': 'DEV-Telegram', 'enlace': util.generate_telegram_link_from_creator(mensaje_original)})
-    mensaje_original = util.format_launch_response(mensaje_original)
-
-    if x_account:
-        # Obtener información de la cuenta de X
-        x_info = await x_tools.get_x_account_info(x_account)
-
-        # Formatear la información de la cuenta de X
+    # Verificar si existe un enlace de X en el mensaje
+    x_username = x_tools.extract_x_username(mensaje_original)
+    x_info_message = ""
+    if x_username:
+        x_info = await x_tools.get_x_account_info(x_username)
         if x_info:
-            x_info_message = x_tools.format_x_response(x_info)
-        else:
-            x_info_message = "No se pudo obtener la información de la cuenta de X."
+            x_info_message = x_tools.format_x_info(x_info)
 
-        # Añadir la información al mensaje original
-        mensaje_original += f"\n\n{x_info_message}"
-    
-    # Enviar mensaje y botones a Discord
-    await dc_listener.send_discord_message_to_channel(message=mensaje_original, buttons=botones_info)
+    # Formatear el mensaje eliminando las partes innecesarias
+    mensaje_formateado = util.format_launch_response(mensaje_original)
+
+    # Añadir información de la cuenta de X si está disponible
+    if x_info_message:
+        mensaje_formateado += f"\n\n{x_info_message}"
+
+    # Enviar el mensaje a Discord con los botones procesados
+    await dc_listener.send_discord_message_to_channel(message=mensaje_formateado, buttons=botones_info)
 
 # Función para iniciar el cliente y escuchar mensajes
 async def iniciar_tg_escucha():

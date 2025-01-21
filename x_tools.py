@@ -46,7 +46,7 @@ async def get_x_account_info(account_name):
             print(f"Error al procesar la respuesta: {e}")
             return None
 
-def format_x_response(x_info):
+def format_x_info(x_info):
     # Crear el mensaje base
     x_info_message = (
         f"===================================\n"
@@ -68,3 +68,36 @@ def format_x_response(x_info):
 
     return x_info_message
 
+def extract_x_username(mensaje_original):
+    # Patrón para capturar nombres de usuario de X con o sin prefijo
+    pattern = r"(?:https?://)?x\.com/(\S+)"
+    match = re.search(pattern, mensaje_original, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+# async def get_x_account_info(x_link):
+#     """Consulta la API de X usando el enlace y devuelve información relevante."""
+#     username = x_link.split('/')[-1]
+#     # Llama a tu API aquí (esto es un ejemplo)
+#     api_url = f"https://api.x.com/user/{username}"
+#     async with httpx.AsyncClient() as client:
+#         response = await client.get(api_url)
+#         if response.status_code == 200:
+#             return response.json()
+#     return None
+
+
+# def format_x_info(x_info):
+#     """Formatea la información de la cuenta de X para añadirla al mensaje."""
+#     return (
+#         f"===================================\n"
+#         f"**Información de la cuenta de X**\n"
+#         f"===================================\n"
+#         f"**Nombre:** {x_info.get('name', 'No disponible')}\n"
+#         f"**Usuario:** @{x_info.get('username', 'No disponible')}\n"
+#         f"**Descripción:** {x_info.get('description', 'No disponible')}\n"
+#         f"**Seguidores:** {x_info.get('followers_count', 'No disponible')}\n"
+#         f"**Siguiendo:** {x_info.get('following_count', 'No disponible')}\n"
+#         f"**Tweets:** {x_info.get('statuses_count', 'No disponible')}\n"
+#         f"**Verificado azul:** {'Sí' if x_info.get('is_blue_verified') else 'No'}\n"
+#     )

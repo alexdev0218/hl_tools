@@ -44,33 +44,46 @@ def format_datetime(datetime_to_convert):
 
 def get_social_links_patterns():
     return {
-        "X": r"(https?://x\.com/\S+|x\.com/\S+)",
+        "X": r"(https?://x\.com/\S+|x\.com/\S+|X\.com/\S+)",
         "Telegram": r"(https?://t\.me/\S+|t\.me/\S+)",
         "Github": r"(https?://github\.com/\S+|github\.com/\S+)",
-        "Website": r"(https?://\S+)"
+        # Website captura dominios pero excluye patrones genéricos como x.com, t.me, github.com
+        "Website": r"(?<![\w\.])([a-zA-Z0-9\-]+\.[a-z]{2,})(?![\w\.])"
     }
+
+def ensure_url_scheme(url):
+    """Asegura que el esquema de URL comience con http o https."""
+    if not url.startswith("http://") and not url.startswith("https://"):
+        return "https://" + url
+    return url
+
+def is_generic_domain(url):
+    """Verifica si un dominio es genérico (x.com, t.me, github.com, etc.)."""
+    generic_domains = {"x.com", "t.me", "github.com"}
+    domain = url.replace("https://", "").replace("http://", "").split('/')[0]
+    return domain.lower() in generic_domains
 
 def extract_social_links(text):
     patterns = get_social_links_patterns()
     extracted_links = {}
 
     for platform, pattern in patterns.items():
-        match = re.search(pattern, text)
-        if match:
-            url = match.group(0)
-            extracted_links[platform] = ensure_url_scheme(url)
+        matches = re.findall(pattern, text)
+        if matches:
+            # Si hay grupos en las coincidencias, selecciona el valor relevante
+            urls = [match[0] if isinstance(match, tuple) else match for match in matches]
+            prioritized_url = next((url for url in urls if url.startswith("http")), urls[0])
+            formatted_url = ensure_url_scheme(prioritized_url.strip())
+
+            # Para "Website", excluye dominios genéricos
+            if platform == "Website" and is_generic_domain(formatted_url):
+                extracted_links[platform] = "No disponible"
+            else:
+                extracted_links[platform] = formatted_url
         else:
             extracted_links[platform] = "No disponible"
 
     return extracted_links
-
-def ensure_url_scheme(url):
-    """
-    Agrega 'https://' al inicio de una URL si no tiene un esquema válido.
-    """
-    if not url.startswith(('http://', 'https://')):
-        return f"https://{url}"
-    return url
 
 def format_launch_response(mensaje_original):
     # Patrón para el nombre y ticker
@@ -81,25 +94,33 @@ def format_launch_response(mensaje_original):
         "ticker": name_match.group(2).strip() if name_match else "No disponible",
     }
 
-    # Patrón para la descripción
-    description_pattern = r"\)\s*(.*?)(?=\nCreator|$)"
-    description_match = re.search(description_pattern, mensaje_original, re.DOTALL)
-    description = description_match.group(1).strip() if description_match else "No disponible"
-    # Eliminar enlaces de la descripción y saltos de línea
-    description = re.sub(r"http[s]?://\S+", "", description).replace("\n", " ").strip()
-
     # Patrón para el creador
-    creator_pattern = r"Creator\s*Creator username:\s*(@\S+)\s*Creator display name:\s*(.*?)\s*Rep:\s*(\d+)\s*[⚠️❌]*\s*Dev Lock:\s*(\S+)"
-    creator_match = re.search(creator_pattern, mensaje_original)
+    creator_pattern = (
+        r"Creator\s*"
+        r"Creator username:\s*(@\S+)\s*"
+        r"Creator display name:\s*(.*?)\s*"
+        r"Rep:\s*(\d+)\s*([^\s]*)\s*"
+        r"Dev Lock:\s*(\S+)"
+    )
+    creator_match = re.search(creator_pattern, mensaje_original, re.DOTALL)
     creator_info = {
-        "username": creator_match.group(1) if creator_match else None,
+        "username": creator_match.group(1) if creator_match else "No disponible",
         "display_name": creator_match.group(2).strip() if creator_match else "No disponible",
         "rep": creator_match.group(3) if creator_match else "No disponible",
-        "dev_lock": creator_match.group(4) if creator_match else "No disponible",
+        "rep_emoji": creator_match.group(4) if creator_match and creator_match.group(4) else "",
+        "dev_lock": creator_match.group(5) if creator_match else "No disponible",
     }
 
-    # Generar enlace de Telegram solo si el username existe
-    telegram_link = f"https://t.me/{creator_info['username'][1:]}" if creator_info["username"] else ""
+    # Eliminar "Launch created"
+    mensaje_sin_launch = re.sub(r"^Launch created.*?\n", "", mensaje_original, flags=re.MULTILINE)
+
+    # Eliminar la sección del creador
+    mensaje_limpio = re.sub(
+        r"Creator\s*Creator username:.*?Dev Lock:.*?(?:\n|$)", "", mensaje_sin_launch, flags=re.DOTALL
+    )
+
+    # Reemplazar enlaces en el mensaje original para evitar vistas previas
+    mensaje_limpio = re.sub(r"(http[s]?://\S+)", r"<\1>", mensaje_limpio)
 
     # Crear el mensaje formateado
     info_message = (
@@ -107,12 +128,11 @@ def format_launch_response(mensaje_original):
         f"**Información del Launch**\n"
         f"===================================\n"
         f"**Nombre:** {name_info['full_name']} ({name_info['ticker']})\n"
-        f"**Descripción:** {description}\n"
-        f"{f'**Telegram:** {telegram_link}' if telegram_link else ''}\n"
+        f"**Descripción:**\n{mensaje_limpio}\n"
         f"**DEV_Nombre:** {creator_info['display_name']}\n"
         f"**DEV_Usuario:** {creator_info['username']}\n"
-        f"**DEV_REP:** {creator_info['rep']}\n"
-        f"**DEV_LOCK:** {creator_info['dev_lock']}\n"
+        f"**DEV_REP:** {creator_info['rep']} {creator_info['rep_emoji']}\n"
+        f"**DEV_LOCK:** {creator_info['dev_lock']}"
     )
 
     return info_message
@@ -126,3 +146,4 @@ def generate_telegram_link_from_creator(text):
         return f"https://t.me/{username[1:]}"  # Genera el enlace eliminando el "@" inicial
     else:
         return "No disponible"
+
