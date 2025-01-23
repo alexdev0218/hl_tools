@@ -42,49 +42,6 @@ def format_datetime(datetime_to_convert):
     date_obj = datetime.strptime(datetime_to_convert, "%a %b %d %H:%M:%S +0000 %Y")
     return date_obj.strftime("%d %B %Y")  
 
-def get_social_links_patterns():
-    return {
-        "X": r"(https?://x\.com/\S+|x\.com/\S+|X\.com/\S+)",
-        "Telegram": r"(https?://t\.me/\S+|t\.me/\S+)",
-        "Github": r"(https?://github\.com/\S+|github\.com/\S+)",
-        # Website captura dominios pero excluye patrones genéricos como x.com, t.me, github.com
-        "Website": r"(?<![\w\.])([a-zA-Z0-9\-]+\.[a-z]{2,})(?![\w\.])"
-    }
-
-def ensure_url_scheme(url):
-    """Asegura que el esquema de URL comience con http o https."""
-    if not url.startswith("http://") and not url.startswith("https://"):
-        return "https://" + url
-    return url
-
-def is_generic_domain(url):
-    """Verifica si un dominio es genérico (x.com, t.me, github.com, etc.)."""
-    generic_domains = {"x.com", "t.me", "github.com"}
-    domain = url.replace("https://", "").replace("http://", "").split('/')[0]
-    return domain.lower() in generic_domains
-
-def extract_social_links(text):
-    patterns = get_social_links_patterns()
-    extracted_links = {}
-
-    for platform, pattern in patterns.items():
-        matches = re.findall(pattern, text)
-        if matches:
-            # Si hay grupos en las coincidencias, selecciona el valor relevante
-            urls = [match[0] if isinstance(match, tuple) else match for match in matches]
-            prioritized_url = next((url for url in urls if url.startswith("http")), urls[0])
-            formatted_url = ensure_url_scheme(prioritized_url.strip())
-
-            # Para "Website", excluye dominios genéricos
-            if platform == "Website" and is_generic_domain(formatted_url):
-                extracted_links[platform] = "No disponible"
-            else:
-                extracted_links[platform] = formatted_url
-        else:
-            extracted_links[platform] = "No disponible"
-
-    return extracted_links
-
 def format_launch_response(mensaje_original):
     # Patrón para el nombre y ticker
     name_pattern = r"Launch created\s*(.*?)\((.*?)\)"
