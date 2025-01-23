@@ -1,3 +1,4 @@
+import json
 import httpx
 import re
 import util
@@ -7,8 +8,8 @@ async def get_x_account_info(account_name):
     host = util.get_env_x_rapid_api_host()
     api_key = util.get_env_x_rapid_api_key()
 
-    url = f"https://{host}/user"
-    querystring = {"username":account_name}
+    url = f"https://{host}/screenname.php"
+    querystring = {"screenname": account_name}
 
     headers = {
         'x-rapidapi-key': api_key,
@@ -16,32 +17,32 @@ async def get_x_account_info(account_name):
     }
 
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers,params=querystring)
-        response.raise_for_status()
-        data_parsed = response.json()
-
-        # Extraer información importante
         try:
-            user_data = data_parsed["result"]["data"]["user"]["result"]
-            legacy_data = user_data["legacy"]
+            response = await client.get(url, headers=headers, params=querystring)
+            response.raise_for_status()
+            data_parsed = response.json()
 
+            # Extraer información importante
             parsed_info = {
-                "name": legacy_data["name"],
-                "username": legacy_data["screen_name"],
-                "description": legacy_data["description"],
-                "created_at": util.format_datetime(legacy_data["created_at"]),
-                "followers_count": legacy_data["followers_count"],
-                "following_count": legacy_data["friends_count"],
-                "statuses_count": legacy_data["statuses_count"],
-                "is_blue_verified": user_data["is_blue_verified"],
-                "profile_image_url": legacy_data["profile_image_url_https"],
-                "profile_banner_url": legacy_data.get("profile_banner_url"),
-                "last_tweet_id": legacy_data.get("pinned_tweet_ids_str", []),
-                "is_identity_verified": user_data.get("verification_info", {}).get("is_identity_verified", False),
+                "name": data_parsed.get("name", "Nombre no disponible"),
+                "username": data_parsed.get("profile", "Usuario no disponible"),
+                "description": data_parsed.get("desc", "Descripción no disponible"),
+                "created_at": util.format_datetime(data_parsed.get("created_at", "Fecha no disponible")),
+                "followers_count": data_parsed.get("sub_count", 0),  # Cambiado de friends a sub_count
+                "following_count": data_parsed.get("friends", 0),    # Cambiado de friends_count a friends
+                "statuses_count": data_parsed.get("statuses_count", 0),
+                "is_blue_verified": data_parsed.get("blue_verified", False),
+                "profile_image_url": data_parsed.get("avatar", ""),
+                "profile_banner_url": data_parsed.get("header_image", ""),
+                "last_tweet_id": data_parsed.get("pinned_tweet_ids_str", []),
+                "is_identity_verified": False  # No está disponible en la respuesta
             }
 
             return parsed_info
 
+        except httpx.HTTPStatusError as e:
+            print(f"Error en la solicitud HTTP: {e}")
+            return None
         except KeyError as e:
             print(f"Error al procesar la respuesta: {e}")
             return None
